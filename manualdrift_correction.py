@@ -2,9 +2,10 @@
 
 import matplotlib.pyplot as plt
 import tifffile
-from PyQt5 import QtCore, QtWidgets
+from PyQt6 import QtCore, QtWidgets
 import sys
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
+from superqt import QRangeSlider
 from matplotlib.figure import Figure
 from skimage.transform import AffineTransform, warp
 from scipy.interpolate import UnivariateSpline
@@ -24,7 +25,6 @@ class MainWindow(QtWidgets.QMainWindow):
         super(MainWindow, self).__init__(*args, **kwargs)
 
         self.sc = MplCanvas(self, width=7, height=8, dpi=100)
-        # CHANGE THE FILENAME TO SOMETHING THAT EXISTS ON YOUR COMPUTER
         self.filename = None
         self.imstack = tiffstack()
         # self.plothandle = self.sc.axes.imshow(self.imstack.getimage(0))
@@ -34,6 +34,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.s = self.sc.axes.scatter([], [], facecolors='none', edgecolors='r')
         self.toolbar = NavigationToolbar2QT(self.sc.fig.canvas, self)
         cid = self.sc.fig.canvas.mpl_connect('button_press_event', self.onclick)
+
+        self.contrastslider = QRangeSlider(QtCore.Qt.Vertical)
+        self.contrastslider.setRange(0,100)
+        self.contrastslider.valueChanged.connect(self.update_contrast)
+        self.imagecontrols = QtWidgets.QHBoxLayout()
+        self.imagecontrols.addWidget(self.contrastslider)
+        self.imagecontrols.addWidget(self.sc)
+
 
         # Buttons
         self.loadfilebutton = QtWidgets.QPushButton('Load File')
@@ -56,7 +64,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.hbox = QtWidgets.QHBoxLayout()
         self.hbox.addLayout(self.buttonbox)
-        self.hbox.addWidget(self.sc)
+        self.hbox.addLayout(self.imagecontrols)
 
         data = []
 
@@ -87,6 +95,11 @@ class MainWindow(QtWidgets.QMainWindow):
         widget.setLayout(layout)
         self.setCentralWidget(widget)
         self.setGeometry(100, 100, 1200, 900)
+
+    def update_contrast(self,value):
+        print(value)
+        self.plothandle.set_clim([value[0], value[1]])
+        self.sc.fig.canvas.draw()
 
     def get_file(self):
         self.sc.axes.cla()
@@ -158,6 +171,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.s = self.sc.axes.scatter(x, y, facecolors='none', edgecolors='r')
             self.sc.fig.canvas.draw()
             self.label.setText(str(value))
+            self.contrastslider.setRange(0, self.imstack.maximum*1.5)
+            self.contrastslider.setValue((self.imstack.minimum,self.imstack.maximum))
 
     def correctdrift(self):
         x = []
@@ -215,7 +230,6 @@ class TableView(QtWidgets.QTableWidget):
         self.data = data
         self.setData()
 
-
     def setData(self):
         horHeaders = ['#', 'x', 'y']
         self.setHorizontalHeaderLabels(horHeaders)
@@ -252,6 +266,8 @@ class tiffstack():
     def __init__(self, pathname=None):
         self.ims = None
         self.nfiles = 0
+        self.minimum = 0
+        self.maximum = np.inf
         if pathname is not None:
             self.load_info(pathname)
 
@@ -260,7 +276,10 @@ class tiffstack():
         self.nfiles = len(self.ims.pages)
 
     def getimage(self, index):
-        return self.ims.pages[index].asarray()
+        image = self.ims.pages[index].asarray()
+        self.minimum = image.min()
+        self.maximum = image.max()
+        return image
 
 
 def main():

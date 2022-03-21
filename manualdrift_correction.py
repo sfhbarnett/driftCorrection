@@ -1,11 +1,9 @@
 
-
-import matplotlib.pyplot as plt
 import tifffile
 from PyQt6 import QtCore, QtWidgets
 import sys
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
-from superqt import QRangeSlider
+from superqt import QLabeledRangeSlider
 from matplotlib.figure import Figure
 from skimage.transform import AffineTransform, warp
 from scipy.interpolate import UnivariateSpline
@@ -35,7 +33,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.toolbar = NavigationToolbar2QT(self.sc.fig.canvas, self)
         cid = self.sc.fig.canvas.mpl_connect('button_press_event', self.onclick)
 
-        self.contrastslider = QRangeSlider(QtCore.Qt.Vertical)
+        self.contrastslider = QLabeledRangeSlider(QtCore.Qt.Vertical)
+        self.contrastslider.setHandleLabelPosition(QLabeledRangeSlider.LabelPosition.LabelsBelow)
         self.contrastslider.setRange(0,100)
         self.contrastslider.valueChanged.connect(self.update_contrast)
         self.imagecontrols = QtWidgets.QHBoxLayout()

@@ -17,6 +17,7 @@ class MplCanvas(FigureCanvasQTAgg):
         self.axes = self.fig.add_subplot(111)
         super(MplCanvas, self).__init__(self.fig)
 
+
 class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self, *args, **kwargs):
@@ -25,17 +26,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sc = MplCanvas(self, width=7, height=8, dpi=100)
         self.filename = None
         self.imstack = tiffstack()
+        self.plothandle = None
         # self.plothandle = self.sc.axes.imshow(self.imstack.getimage(0))
         # self.plothandle.set_cmap('gray')
         self.sc.axes.get_xaxis().set_visible(False)
         self.sc.axes.get_yaxis().set_visible(False)
         self.s = self.sc.axes.scatter([], [], facecolors='none', edgecolors='r')
         self.toolbar = NavigationToolbar2QT(self.sc.fig.canvas, self)
-        cid = self.sc.fig.canvas.mpl_connect('button_press_event', self.onclick)
+        self.sc.fig.canvas.mpl_connect('button_press_event', self.onclick)
 
         self.contrastslider = QLabeledRangeSlider(QtCore.Qt.Vertical)
         self.contrastslider.setHandleLabelPosition(QLabeledRangeSlider.LabelPosition.LabelsBelow)
-        self.contrastslider.setRange(0,100)
+        self.contrastslider.setRange(0, 100)
         self.contrastslider.valueChanged.connect(self.update_contrast)
         self.imagecontrols = QtWidgets.QHBoxLayout()
         self.imagecontrols.addWidget(self.contrastslider)
@@ -67,12 +69,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
         data = []
 
+        self.right = QtWidgets.QVBoxLayout()
+
         self.table = TableView(data)
         self.table.setColumnCount(3)
         self.table.setRowCount(0)
         self.table.show()
+        self.right.addWidget(self.table)
 
-        self.hbox.addWidget(self.table)
+        self.driftgraph = MplCanvas()
+        self.right.addWidget(self.driftgraph)
+
+        self.hbox.addLayout(self.right)
 
         sliderholder = QtWidgets.QHBoxLayout()
         self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
@@ -95,10 +103,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(widget)
         self.setGeometry(100, 100, 1200, 900)
 
-    def update_contrast(self,value):
-        print(value)
-        self.plothandle.set_clim([value[0], value[1]])
-        self.sc.fig.canvas.draw()
+    def update_contrast(self, value):
+        if self.plothandle:
+            self.plothandle.set_clim([value[0], value[1]])
+            self.sc.fig.canvas.draw()
 
     def get_file(self):
         self.sc.axes.cla()
@@ -113,6 +121,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.plothandle.set_cmap('gray')
             self.sc.fig.canvas.draw()
             self.table.clearTable()
+            self.contrastslider.setRange(0, self.imstack.maximum * 1.5)
+            self.contrastslider.setValue((self.imstack.minimum, self.imstack.maximum))
 
     def onclick(self, event):
         if self.roimode == 1:
@@ -171,7 +181,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.sc.fig.canvas.draw()
             self.label.setText(str(value))
             self.contrastslider.setRange(0, self.imstack.maximum*1.5)
-            self.contrastslider.setValue((self.imstack.minimum,self.imstack.maximum))
+            self.contrastslider.setValue((self.imstack.minimum, self.imstack.maximum))
 
     def correctdrift(self):
         x = []
@@ -197,14 +207,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sc.axes.cla()
         self.sc.axes.plot(subt, smoothx)
         self.sc.axes.plot(subt, smoothy)
-        self.sc.axes.scatter(t,x)
-        self.sc.axes.scatter(t,y)
+        self.sc.axes.scatter(t, x)
+        self.sc.axes.scatter(t, y)
         self.sc.axes.get_xaxis().set_visible(True)
         self.sc.axes.get_yaxis().set_visible(True)
         self.sc.axes.axis('square')
         self.sc.axes.set_xlim([0, self.imstack.nfiles])
-        self.sc.axes.set_ylim([min([min(smoothx), min(smoothy),min(x), min(y)])-5,
-                               max([max(smoothx), max(smoothy),max(x), max(y)])+5])
+        self.sc.axes.set_ylim([min([min(smoothx), min(smoothy), min(x), min(y)])-5,
+                               max([max(smoothx), max(smoothy), max(x), max(y)])+5])
         self.sc.axes.set_aspect(1.0/self.sc.axes.get_data_ratio(), adjustable='box')
         outname = self.filename[:-4] + 'DC.tif'
         self.sc.fig.canvas.draw()
@@ -220,7 +230,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def showPlot(self):
         pass
-
 
 
 class TableView(QtWidgets.QTableWidget):
@@ -259,7 +268,6 @@ class TableView(QtWidgets.QTableWidget):
         e.ignore()
 
 
-
 class tiffstack():
 
     def __init__(self, pathname=None):
@@ -293,4 +301,5 @@ def main():
 
 
 if __name__ == '__main__':
-    m = main()
+    main()
+

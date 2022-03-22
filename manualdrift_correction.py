@@ -42,7 +42,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.imagecontrols.addWidget(self.sc)
 
 
-        # Buttons
+        # LEFT COLUMN
         self.loadfilebutton = QtWidgets.QPushButton('Load File')
         self.loadfilebutton.clicked.connect(self.get_file)
         self.loadfilebutton.setToolTip('Load a file for processing')
@@ -65,10 +65,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.hbox.addLayout(self.buttonbox)
         self.hbox.addLayout(self.imagecontrols)
 
-        data = []
+        # RIGHT COLUMN
 
         self.right = QtWidgets.QVBoxLayout()
 
+        data = []
         self.table = TableView(data)
         self.table.setColumnCount(3)
         self.table.setRowCount(0)
@@ -204,10 +205,11 @@ class MainWindow(QtWidgets.QMainWindow):
         smoothy = usy(subt)
         outname = self.filename[:-4] + 'DC.tif'
 
-        self.driftgraph.axes.plot(subt, smoothx)
-        self.driftgraph.axes.plot(subt, smoothy)
+        line1, = self.driftgraph.axes.plot(subt, smoothx, label='x drift')
+        line2, = self.driftgraph.axes.plot(subt, smoothy, label='y drift')
         self.driftgraph.axes.scatter(t, x)
         self.driftgraph.axes.scatter(t, y)
+        self.driftgraph.axes.legend(handles=[line1, line2],loc='upper right')
         self.driftgraph.fig.canvas.draw()
 
         with tifffile.TiffWriter(outname) as tif:
@@ -219,9 +221,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 shifted = warp(image, transform, preserve_range=True)
                 tif.save(np.int16(shifted))
         print('saved data')
-
-    def showPlot(self):
-        pass
 
 
 class TableView(QtWidgets.QTableWidget):

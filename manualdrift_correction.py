@@ -27,8 +27,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.filename = None
         self.imstack = tiffstack()
         self.plothandle = None
-        # self.plothandle = self.sc.axes.imshow(self.imstack.getimage(0))
-        # self.plothandle.set_cmap('gray')
         self.sc.axes.get_xaxis().set_visible(False)
         self.sc.axes.get_yaxis().set_visible(False)
         self.s = self.sc.axes.scatter([], [], facecolors='none', edgecolors='r')
@@ -204,20 +202,27 @@ class MainWindow(QtWidgets.QMainWindow):
         subt = [t for t in range(self.imstack.nfiles)]
         smoothx = usx(subt)
         smoothy = usy(subt)
-        self.sc.axes.cla()
-        self.sc.axes.plot(subt, smoothx)
-        self.sc.axes.plot(subt, smoothy)
-        self.sc.axes.scatter(t, x)
-        self.sc.axes.scatter(t, y)
-        self.sc.axes.get_xaxis().set_visible(True)
-        self.sc.axes.get_yaxis().set_visible(True)
-        self.sc.axes.axis('square')
-        self.sc.axes.set_xlim([0, self.imstack.nfiles])
-        self.sc.axes.set_ylim([min([min(smoothx), min(smoothy), min(x), min(y)])-5,
-                               max([max(smoothx), max(smoothy), max(x), max(y)])+5])
-        self.sc.axes.set_aspect(1.0/self.sc.axes.get_data_ratio(), adjustable='box')
+        # self.sc.axes.cla()
+        # self.sc.axes.plot(subt, smoothx)
+        # self.sc.axes.plot(subt, smoothy)
+        # self.sc.axes.scatter(t, x)
+        # self.sc.axes.scatter(t, y)
+        # self.sc.axes.get_xaxis().set_visible(True)
+        # self.sc.axes.get_yaxis().set_visible(True)
+        # self.sc.axes.axis('square')
+        # self.sc.axes.set_xlim([0, self.imstack.nfiles])
+        # self.sc.axes.set_ylim([min([min(smoothx), min(smoothy), min(x), min(y)])-5,
+        #                        max([max(smoothx), max(smoothy), max(x), max(y)])+5])
+        # self.sc.axes.set_aspect(1.0/self.sc.axes.get_data_ratio(), adjustable='box')
         outname = self.filename[:-4] + 'DC.tif'
-        self.sc.fig.canvas.draw()
+        #self.sc.fig.canvas.draw()
+
+        self.driftgraph.axes.plot(subt, smoothx)
+        self.driftgraph.axes.plot(subt, smoothy)
+        self.driftgraph.axes.scatter(t, x)
+        self.driftgraph.axes.scatter(t, y)
+        self.driftgraph.fig.canvas.draw()
+
         with tifffile.TiffWriter(outname) as tif:
             for index in range(self.imstack.nfiles):
                 image = self.imstack.getimage(index)

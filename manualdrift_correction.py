@@ -23,24 +23,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
 
-        self.sc = MplCanvas(self, width=7, height=8, dpi=100)
-        self.filename = None
-        self.imstack = tiffstack()
-        self.plothandle = None
-        self.sc.axes.get_xaxis().set_visible(False)
-        self.sc.axes.get_yaxis().set_visible(False)
-        self.s = self.sc.axes.scatter([], [], facecolors='none', edgecolors='r')
-        self.toolbar = NavigationToolbar2QT(self.sc.fig.canvas, self)
-        self.sc.fig.canvas.mpl_connect('button_press_event', self.onclick)
-
-        self.contrastslider = QLabeledRangeSlider(QtCore.Qt.Vertical)
-        self.contrastslider.setHandleLabelPosition(QLabeledRangeSlider.LabelPosition.LabelsBelow)
-        self.contrastslider.setRange(0, 100)
-        self.contrastslider.valueChanged.connect(self.update_contrast)
-        self.imagecontrols = QtWidgets.QHBoxLayout()
-        self.imagecontrols.addWidget(self.contrastslider)
-        self.imagecontrols.addWidget(self.sc)
-
+        self.xdrift = None #x-drift
+        self.ydrift = None #y-drift
 
         # LEFT COLUMN
         self.loadfilebutton = QtWidgets.QPushButton('Load File')
@@ -53,13 +37,38 @@ class MainWindow(QtWidgets.QMainWindow):
         self.driftcorbutton = QtWidgets.QPushButton('Drift')
         self.driftcorbutton.clicked.connect(self.correctdrift)
         self.driftcorbutton.setToolTip('Correct the drift and save file in same directory')
+        self.driftcheckbox = QtWidgets.QCheckBox("Apply drift", self)
+        self.driftcheckbox.setEnabled(False)
 
         self.buttonbox = QtWidgets.QVBoxLayout()
         self.buttonbox.addStretch(1)
         self.buttonbox.addWidget(self.loadfilebutton)
         self.buttonbox.addWidget(self.toggleroi)
         self.buttonbox.addWidget(self.driftcorbutton)
+        self.buttonbox.addWidget(self.driftcheckbox)
         self.buttonbox.addStretch(1)
+
+        # Central Image controls
+
+        self.sc = MplCanvas(self, width=7, height=8, dpi=100)
+        self.filename = None
+        self.imstack = tiffstack()
+        self.plothandle = None
+        self.sc.axes.get_xaxis().set_visible(False)
+        self.sc.axes.get_yaxis().set_visible(False)
+        self.sc.axes.set_aspect('auto')
+        self.sc.fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+        self.s = self.sc.axes.scatter([], [], facecolors='none', edgecolors='r')
+        self.toolbar = NavigationToolbar2QT(self.sc.fig.canvas, self)
+        self.sc.fig.canvas.mpl_connect('button_press_event', self.onclick)
+
+        self.contrastslider = QLabeledRangeSlider(QtCore.Qt.Vertical)
+        self.contrastslider.setHandleLabelPosition(QLabeledRangeSlider.LabelPosition.LabelsBelow)
+        self.contrastslider.setRange(0, 100)
+        self.contrastslider.valueChanged.connect(self.update_contrast)
+        self.imagecontrols = QtWidgets.QHBoxLayout()
+        self.imagecontrols.addWidget(self.contrastslider)
+        self.imagecontrols.addWidget(self.sc)
 
         self.hbox = QtWidgets.QHBoxLayout()
         self.hbox.addLayout(self.buttonbox)
@@ -164,7 +173,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def move_through_stack(self, value):
         if self.plothandle is not None:
-            self.plothandle.set_data(self.imstack.getimage(value))
+            if self.driftcheckbox.isChecked():
+                xshift = self.xdrift(value)
+                yshift = self.ydrift(value)
+                image = self.imstack.getimage(value)
+                transform = AffineTransform(translation=[xshift, yshift])
+                shifted = warp(image, transform, preserve_range=True)
+                self.plothandle.set_data(shifted)
+            else:
+                self.plothandle.set_data(self.imstack.getimage(value))
             x = []
             y = []
             for row in range(self.table.rowCount()):
@@ -200,6 +217,9 @@ class MainWindow(QtWidgets.QMainWindow):
         usx.set_smoothing_factor(0.7)
         usy.set_smoothing_factor(0.7)
 
+        self.xdrift = usx
+        self.ydrift = usy
+
         subt = [t for t in range(self.imstack.nfiles)]
         smoothx = usx(subt)
         smoothy = usy(subt)
@@ -211,6 +231,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.driftgraph.axes.scatter(t, y)
         self.driftgraph.axes.legend(handles=[line1, line2],loc='upper right')
         self.driftgraph.fig.canvas.draw()
+
+        self.driftcheckbox.setEnabled(True)
 
         with tifffile.TiffWriter(outname) as tif:
             for index in range(self.imstack.nfiles):

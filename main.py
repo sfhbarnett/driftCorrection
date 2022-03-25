@@ -25,7 +25,7 @@ class TiffStack:
         return self.ims.pages[index].asarray()
 
 
-def get_drift(tf, update=10, smoothing=0.9):
+def PCC(tf, update=10, smoothing=0.9):
     counter = 0
     drift_total = []
     refimage = tf.getimage(0)
@@ -67,7 +67,7 @@ outpath = '/Users/sbarnett/Documents/PIVData/circle/out.tif' # Enter output plac
 
 tiffstack = TiffStack(path)
 
-drift_total, usx, usy = get_drift(tiffstack, 10, smoothing=0.7)
+drift_total, usx, usy = PCC(tiffstack, 10, smoothing=0.7)
 
 #refimage = io.imread(filelist[0])
 refimage = tiffstack.getimage(0)

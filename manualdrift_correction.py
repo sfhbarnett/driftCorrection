@@ -8,6 +8,7 @@ from matplotlib.figure import Figure
 from skimage.transform import AffineTransform, warp
 from scipy.interpolate import UnivariateSpline
 import numpy as np
+from PhaseCrossCorrelation import PCC
 
 
 class MplCanvas(FigureCanvasQTAgg):
@@ -37,6 +38,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.driftcorbutton = QtWidgets.QPushButton('Drift')
         self.driftcorbutton.clicked.connect(self.correctdrift)
         self.driftcorbutton.setToolTip('Correct the drift and save file in same directory')
+        self.PCCbutton = QtWidgets.QPushButton('PCC')
+        self.PCCbutton.clicked.connect(self.pccbuttonfunction)
+        self.PCCbutton.setToolTip('Applies subpixel phase cross correlation to estimate drift')
         self.driftcheckbox = QtWidgets.QCheckBox("Apply drift", self)
         self.driftcheckbox.setEnabled(False)
         self.autocontrast = QtWidgets.QCheckBox("AutoContrast",self)
@@ -47,6 +51,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.buttonbox.addWidget(self.loadfilebutton)
         self.buttonbox.addWidget(self.toggleroi)
         self.buttonbox.addWidget(self.driftcorbutton)
+        self.buttonbox.addWidget(self.PCCbutton)
         self.buttonbox.addWidget(self.driftcheckbox)
         self.buttonbox.addWidget(self.autocontrast)
         self.buttonbox.addStretch(1)
@@ -210,7 +215,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.sc.fig.canvas.draw()
             self.label.setText(str(value))
 
-
     def correctdrift(self):
         x = []
         y = []
@@ -255,6 +259,20 @@ class MainWindow(QtWidgets.QMainWindow):
                 shifted = warp(image, transform, preserve_range=True)
                 tif.save(np.int16(shifted))
         print('saved data')
+
+    def pccbuttonfunction(self):
+        drifttotal, usx, usy = PCC(self.imstack)
+        self.xdrift = usx
+        self.ydrift = usy
+        subt = [t for t in range(self.imstack.nfiles)]
+        smoothx = usx(subt)
+        smoothy = usy(subt)
+        line1, = self.driftgraph.axes.plot(subt, smoothx, label='x drift')
+        line2, = self.driftgraph.axes.plot(subt, smoothy, label='y drift')
+        self.driftgraph.axes.legend(handles=[line1, line2], loc='upper right')
+        self.driftgraph.fig.canvas.draw()
+        self.driftcheckbox.setEnabled(True)
+
 
 
 class TableView(QtWidgets.QTableWidget):

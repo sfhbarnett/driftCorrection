@@ -39,6 +39,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.driftcorbutton.setToolTip('Correct the drift and save file in same directory')
         self.driftcheckbox = QtWidgets.QCheckBox("Apply drift", self)
         self.driftcheckbox.setEnabled(False)
+        self.autocontrast = QtWidgets.QCheckBox("AutoContrast",self)
+        self.autocontrast.setChecked(True)
 
         self.buttonbox = QtWidgets.QVBoxLayout()
         self.buttonbox.addStretch(1)
@@ -46,6 +48,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.buttonbox.addWidget(self.toggleroi)
         self.buttonbox.addWidget(self.driftcorbutton)
         self.buttonbox.addWidget(self.driftcheckbox)
+        self.buttonbox.addWidget(self.autocontrast)
         self.buttonbox.addStretch(1)
 
         # Central Image controls
@@ -112,8 +115,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setGeometry(100, 100, 1200, 900)
 
     def update_contrast(self, value):
+        self.mincontrast = value[0]
+        self.maxcontrast = value[1]
         if self.plothandle:
-            self.plothandle.set_clim([value[0], value[1]])
+            self.plothandle.set_clim(self.mincontrast, self.maxcontrast)
             self.sc.fig.canvas.draw()
 
     def get_file(self):
@@ -172,8 +177,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self.toggleroi.setText("Roi ON ")
 
     def move_through_stack(self, value):
+        """ Updates the current image in the viewport"""
         if self.plothandle is not None:
             if self.driftcheckbox.isChecked():
+                #If user wishes to view the drift corrected results
                 xshift = self.xdrift(value)
                 yshift = self.ydrift(value)
                 image = self.imstack.getimage(value)
@@ -194,10 +201,15 @@ class MainWindow(QtWidgets.QMainWindow):
             else:
                 self.s.remove()
                 self.s = self.sc.axes.scatter(x, y, facecolors='none', edgecolors='r')
+            if not self.autocontrast.isChecked():
+                self.plothandle.set_clim([self.mincontrast, self.maxcontrast])
+            else:
+                self.contrastslider.setRange(0, self.imstack.maximum*1.5)
+                self.contrastslider.setValue((self.imstack.minimum, self.imstack.maximum))
+
             self.sc.fig.canvas.draw()
             self.label.setText(str(value))
-            self.contrastslider.setRange(0, self.imstack.maximum*1.5)
-            self.contrastslider.setValue((self.imstack.minimum, self.imstack.maximum))
+
 
     def correctdrift(self):
         x = []

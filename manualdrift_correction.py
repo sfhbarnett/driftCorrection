@@ -45,6 +45,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.driftcheckbox.setEnabled(False)
         self.autocontrast = QtWidgets.QCheckBox("AutoContrast",self)
         self.autocontrast.setChecked(True)
+        self.savedriftcorrected = QtWidgets.QPushButton("Save DC")
+        self.savedriftcorrected.clicked.connect(self.savedrift)
 
         self.buttonbox = QtWidgets.QVBoxLayout()
         self.buttonbox.addStretch(1)
@@ -54,6 +56,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.buttonbox.addWidget(self.PCCbutton)
         self.buttonbox.addWidget(self.driftcheckbox)
         self.buttonbox.addWidget(self.autocontrast)
+        self.buttonbox.addWidget(self.savedriftcorrected)
         self.buttonbox.addStretch(1)
 
         # Central Image controls
@@ -142,6 +145,19 @@ class MainWindow(QtWidgets.QMainWindow):
             self.contrastslider.setRange(0, self.imstack.maximum * 1.5)
             self.contrastslider.setValue((self.imstack.minimum, self.imstack.maximum))
 
+    def savedrift(self):
+        if self.plothandle is not None:
+            outname = self.filename[:-4] + 'DC.tif'
+            with tifffile.TiffWriter(outname) as tif:
+                for index in range(self.imstack.nfiles):
+                    image = self.imstack.getimage(index)
+                    xshift = self.xdrift(index)
+                    yshift = self.ydrift(index)
+                    transform = AffineTransform(translation=[xshift, yshift])
+                    shifted = warp(image, transform, preserve_range=True)
+                    tif.save(np.int16(shifted))
+            print('saved data')
+
     def onclick(self, event):
         if self.roimode == 1:
             self.table.addRow([self.slider.value(), round(event.xdata, 2), round(event.ydata, 2)])
@@ -216,63 +232,53 @@ class MainWindow(QtWidgets.QMainWindow):
             self.label.setText(str(value))
 
     def correctdrift(self):
-        x = []
-        y = []
-        t = []
-        for row in range(self.table.rowCount()):
-            t.append(int(self.table.item(row, 0).text()))
-            x.append(float(self.table.item(row, 1).text()))
-            y.append(float(self.table.item(row, 2).text()))
-        t = [tsub for tsub in t]
-        x = [xsub - x[0] for xsub in x]
-        y = [ysub - y[0] for ysub in y]
-        t, xs, ys = (list(t) for t in zip(*sorted(zip(t, x, y))))
+        if self.plothandle is not None:
+            x = []
+            y = []
+            t = []
+            for row in range(self.table.rowCount()):
+                t.append(int(self.table.item(row, 0).text()))
+                x.append(float(self.table.item(row, 1).text()))
+                y.append(float(self.table.item(row, 2).text()))
+            t = [tsub for tsub in t]
+            x = [xsub - x[0] for xsub in x]
+            y = [ysub - y[0] for ysub in y]
+            t, xs, ys = (list(t) for t in zip(*sorted(zip(t, x, y))))
 
-        usx = UnivariateSpline(t, xs)
-        usy = UnivariateSpline(t, ys)
-        usx.set_smoothing_factor(0.7)
-        usy.set_smoothing_factor(0.7)
+            usx = UnivariateSpline(t, xs)
+            usy = UnivariateSpline(t, ys)
+            usx.set_smoothing_factor(0.7)
+            usy.set_smoothing_factor(0.7)
 
-        self.xdrift = usx
-        self.ydrift = usy
+            self.xdrift = usx
+            self.ydrift = usy
 
-        subt = [t for t in range(self.imstack.nfiles)]
-        smoothx = usx(subt)
-        smoothy = usy(subt)
-        outname = self.filename[:-4] + 'DC.tif'
+            subt = [t for t in range(self.imstack.nfiles)]
+            smoothx = usx(subt)
+            smoothy = usy(subt)
 
-        line1, = self.driftgraph.axes.plot(subt, smoothx, label='x drift')
-        line2, = self.driftgraph.axes.plot(subt, smoothy, label='y drift')
-        self.driftgraph.axes.scatter(t, x)
-        self.driftgraph.axes.scatter(t, y)
-        self.driftgraph.axes.legend(handles=[line1, line2],loc='upper right')
-        self.driftgraph.fig.canvas.draw()
+            line1, = self.driftgraph.axes.plot(subt, smoothx, label='x drift')
+            line2, = self.driftgraph.axes.plot(subt, smoothy, label='y drift')
+            self.driftgraph.axes.scatter(t, x)
+            self.driftgraph.axes.scatter(t, y)
+            self.driftgraph.axes.legend(handles=[line1, line2],loc='upper right')
+            self.driftgraph.fig.canvas.draw()
 
-        self.driftcheckbox.setEnabled(True)
-
-        with tifffile.TiffWriter(outname) as tif:
-            for index in range(self.imstack.nfiles):
-                image = self.imstack.getimage(index)
-                xshift = usx(index)
-                yshift = usy(index)
-                transform = AffineTransform(translation=[xshift, yshift])
-                shifted = warp(image, transform, preserve_range=True)
-                tif.save(np.int16(shifted))
-        print('saved data')
+            self.driftcheckbox.setEnabled(True)
 
     def pccbuttonfunction(self):
-        drifttotal, usx, usy = PCC(self.imstack)
-        self.xdrift = usx
-        self.ydrift = usy
-        subt = [t for t in range(self.imstack.nfiles)]
-        smoothx = usx(subt)
-        smoothy = usy(subt)
-        line1, = self.driftgraph.axes.plot(subt, smoothx, label='x drift')
-        line2, = self.driftgraph.axes.plot(subt, smoothy, label='y drift')
-        self.driftgraph.axes.legend(handles=[line1, line2], loc='upper right')
-        self.driftgraph.fig.canvas.draw()
-        self.driftcheckbox.setEnabled(True)
-
+        if self.plothandle is not None:
+            drifttotal, usx, usy = PCC(self.imstack)
+            self.xdrift = usx
+            self.ydrift = usy
+            subt = [t for t in range(self.imstack.nfiles)]
+            smoothx = usx(subt)
+            smoothy = usy(subt)
+            line1, = self.driftgraph.axes.plot(subt, smoothx, label='x drift')
+            line2, = self.driftgraph.axes.plot(subt, smoothy, label='y drift')
+            self.driftgraph.axes.legend(handles=[line1, line2], loc='upper right')
+            self.driftgraph.fig.canvas.draw()
+            self.driftcheckbox.setEnabled(True)
 
 
 class TableView(QtWidgets.QTableWidget):

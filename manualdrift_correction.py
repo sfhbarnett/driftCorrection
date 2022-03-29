@@ -37,15 +37,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.roimode = 0
         self.driftcorbutton = QtWidgets.QPushButton('Drift')
         self.driftcorbutton.clicked.connect(self.correctdrift)
-        self.driftcorbutton.setToolTip('Correct the drift and save file in same directory')
+        self.driftcorbutton.setToolTip('Correct the drift based on manually introduced point ROIs throughout the stack')
         self.PCCbutton = QtWidgets.QPushButton('PCC')
         self.PCCbutton.clicked.connect(self.pccbuttonfunction)
         self.PCCbutton.setToolTip('Applies subpixel phase cross correlation to estimate drift')
         self.driftcheckbox = QtWidgets.QCheckBox("Apply drift", self)
+        self.driftcheckbox.setToolTip("If a drift estimation has been made, this toggles the correction to the displayed"
+                                      " data")
         self.driftcheckbox.setEnabled(False)
-        self.autocontrast = QtWidgets.QCheckBox("AutoContrast",self)
+        self.autocontrast = QtWidgets.QCheckBox("AutoContrast", self)
+        self.autocontrast.setToolTip("Toggle autocontrast on/off")
         self.autocontrast.setChecked(True)
         self.savedriftcorrected = QtWidgets.QPushButton("Save DC")
+        self.savedriftcorrected.setToolTip("Save the drift corrected data")
         self.savedriftcorrected.clicked.connect(self.savedrift)
 
         self.buttonbox = QtWidgets.QVBoxLayout()

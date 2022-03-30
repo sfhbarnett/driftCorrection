@@ -113,10 +113,22 @@ class MainWindow(QtWidgets.QMainWindow):
         self.table.show()
         self.right.addWidget(self.table)
 
+        self.cleartablebutton = QtWidgets.QPushButton("Clear")
+        self.cleartablebutton.clicked.connect(self.cleartable)
+        self.deleteonebutton = QtWidgets.QPushButton("Delete last")
+        self.deleteonebutton.clicked.connect(self.deletelast)
+
+        self.right_buttons = QtWidgets.QHBoxLayout()
+        self.right_buttons.addWidget(self.cleartablebutton)
+        self.right_buttons.addWidget(self.deleteonebutton)
+        self.right.addLayout(self.right_buttons)
+
         self.driftgraph = MplCanvas()
         self.right.addWidget(self.driftgraph)
 
         self.hbox.addLayout(self.right)
+
+        # BOTTOM
 
         sliderholder = QtWidgets.QHBoxLayout()
         self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
@@ -306,7 +318,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.driftgraph.fig.canvas.draw()
         self.driftcheckbox.setEnabled(True)
 
+    def cleartable(self):
+        self.table.clearTable()
+        self.move_through_stack(self.currentimage)
 
+    def deletelast(self):
+        self.table.deleteRow()
+        self.move_through_stack(self.currentimage)
 
 
 class TableView(QtWidgets.QTableWidget):
@@ -336,6 +354,10 @@ class TableView(QtWidgets.QTableWidget):
             cell = QtWidgets.QTableWidgetItem(str(el))
             self.setItem(row, col, cell)
             col += 1
+
+    def deleteRow(self):
+        row = self.rowCount()
+        self.removeRow(row-1)
 
     def clearTable(self):
         while self.rowCount() > 0:
@@ -375,9 +397,6 @@ def main():
     main = MainWindow()
     main.show()
     sys.exit(app.exec_())
-
-
-
 
 
 if __name__ == '__main__':

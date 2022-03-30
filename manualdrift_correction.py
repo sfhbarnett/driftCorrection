@@ -2,6 +2,8 @@
 import tifffile
 from PyQt6 import QtCore, QtWidgets
 import sys
+
+from PyQt6.QtCore import pyqtSlot
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
 from superqt import QLabeledRangeSlider
 from matplotlib.figure import Figure
@@ -9,7 +11,19 @@ from skimage.transform import AffineTransform, warp
 from scipy.interpolate import UnivariateSpline
 import numpy as np
 from PhaseCrossCorrelation import PCC
+from functools import wraps
 
+
+def ifnotplothandles(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if args[0].plothandle is not None:
+            print(*args)
+            return func(*args, **kwargs)
+        else:
+            print(args[0])
+            return QtWidgets.QMessageBox.about(args[0], "Error", "There is no dataset loaded in")
+    return wrapper
 
 class MplCanvas(FigureCanvasQTAgg):
 
@@ -149,18 +163,19 @@ class MainWindow(QtWidgets.QMainWindow):
             self.contrastslider.setRange(0, self.imstack.maximum * 1.5)
             self.contrastslider.setValue((self.imstack.minimum, self.imstack.maximum))
 
+    @pyqtSlot()
+    @ifnotplothandles
     def savedrift(self):
-        if self.plothandle is not None:
-            outname = self.filename[:-4] + 'DC.tif'
-            with tifffile.TiffWriter(outname) as tif:
-                for index in range(self.imstack.nfiles):
-                    image = self.imstack.getimage(index)
-                    xshift = self.xdrift(index)
-                    yshift = self.ydrift(index)
-                    transform = AffineTransform(translation=[xshift, yshift])
-                    shifted = warp(image, transform, preserve_range=True)
-                    tif.save(np.int16(shifted))
-            print('saved data')
+        outname = self.filename[:-4] + 'DC.tif'
+        with tifffile.TiffWriter(outname) as tif:
+            for index in range(self.imstack.nfiles):
+                image = self.imstack.getimage(index)
+                xshift = self.xdrift(index)
+                yshift = self.ydrift(index)
+                transform = AffineTransform(translation=[xshift, yshift])
+                shifted = warp(image, transform, preserve_range=True)
+                tif.save(np.int16(shifted))
+        print('saved data')
 
     def onclick(self, event):
         if self.roimode == 1:
@@ -201,88 +216,93 @@ class MainWindow(QtWidgets.QMainWindow):
             self.roimode = 1
             self.toggleroi.setText("Roi ON ")
 
+    @pyqtSlot(int)
+    @ifnotplothandles
     def move_through_stack(self, value):
         """ Updates the current image in the viewport"""
-        if self.plothandle is not None:
-            if self.driftcheckbox.isChecked():
-                #If user wishes to view the drift corrected results
-                xshift = self.xdrift(value)
-                yshift = self.ydrift(value)
-                image = self.imstack.getimage(value)
-                transform = AffineTransform(translation=[xshift, yshift])
-                shifted = warp(image, transform, preserve_range=True)
-                self.plothandle.set_data(shifted)
-            else:
-                self.plothandle.set_data(self.imstack.getimage(value))
-            x = []
-            y = []
-            for row in range(self.table.rowCount()):
-                if int(self.table.item(row, 0).text()) == value:
-                    x.append(float(self.table.item(row, 1).text()))
-                    y.append(float(self.table.item(row, 2).text()))
-            if len(x) == 0:
-                self.s.remove()
-                self.s = self.sc.axes.scatter([], [], facecolors='none', edgecolors='r')
-            else:
-                self.s.remove()
-                self.s = self.sc.axes.scatter(x, y, facecolors='none', edgecolors='r')
-            if not self.autocontrast.isChecked():
-                self.plothandle.set_clim([self.mincontrast, self.maxcontrast])
-            else:
-                self.contrastslider.setRange(0, self.imstack.maximum*1.5)
-                self.contrastslider.setValue((self.imstack.minimum, self.imstack.maximum))
-
-            self.sc.fig.canvas.draw()
-            self.label.setText(str(value))
-
-    def correctdrift(self):
-        if self.plothandle is not None:
-            x = []
-            y = []
-            t = []
-            for row in range(self.table.rowCount()):
-                t.append(int(self.table.item(row, 0).text()))
+        if self.driftcheckbox.isChecked():
+            #If user wishes to view the drift corrected results
+            xshift = self.xdrift(value)
+            yshift = self.ydrift(value)
+            image = self.imstack.getimage(value)
+            transform = AffineTransform(translation=[xshift, yshift])
+            shifted = warp(image, transform, preserve_range=True)
+            self.plothandle.set_data(shifted)
+        else:
+            self.plothandle.set_data(self.imstack.getimage(value))
+        x = []
+        y = []
+        for row in range(self.table.rowCount()):
+            if int(self.table.item(row, 0).text()) == value:
                 x.append(float(self.table.item(row, 1).text()))
                 y.append(float(self.table.item(row, 2).text()))
-            t = [tsub for tsub in t]
-            x = [xsub - x[0] for xsub in x]
-            y = [ysub - y[0] for ysub in y]
-            t, xs, ys = (list(t) for t in zip(*sorted(zip(t, x, y))))
+        if len(x) == 0:
+            self.s.remove()
+            self.s = self.sc.axes.scatter([], [], facecolors='none', edgecolors='r')
+        else:
+            self.s.remove()
+            self.s = self.sc.axes.scatter(x, y, facecolors='none', edgecolors='r')
+        if not self.autocontrast.isChecked():
+            self.plothandle.set_clim([self.mincontrast, self.maxcontrast])
+        else:
+            self.contrastslider.setRange(0, self.imstack.maximum*1.5)
+            self.contrastslider.setValue((self.imstack.minimum, self.imstack.maximum))
 
-            usx = UnivariateSpline(t, xs)
-            usy = UnivariateSpline(t, ys)
-            usx.set_smoothing_factor(0.7)
-            usy.set_smoothing_factor(0.7)
+        self.sc.fig.canvas.draw()
+        self.label.setText(str(value))
 
-            self.xdrift = usx
-            self.ydrift = usy
+    @pyqtSlot()
+    @ifnotplothandles
+    def correctdrift(self):
+        x = []
+        y = []
+        t = []
+        for row in range(self.table.rowCount()):
+            t.append(int(self.table.item(row, 0).text()))
+            x.append(float(self.table.item(row, 1).text()))
+            y.append(float(self.table.item(row, 2).text()))
+        t = [tsub for tsub in t]
+        x = [xsub - x[0] for xsub in x]
+        y = [ysub - y[0] for ysub in y]
+        t, xs, ys = (list(t) for t in zip(*sorted(zip(t, x, y))))
 
-            subt = [t for t in range(self.imstack.nfiles)]
-            smoothx = usx(subt)
-            smoothy = usy(subt)
+        usx = UnivariateSpline(t, xs)
+        usy = UnivariateSpline(t, ys)
+        usx.set_smoothing_factor(0.7)
+        usy.set_smoothing_factor(0.7)
 
-            line1, = self.driftgraph.axes.plot(subt, smoothx, label='x drift')
-            line2, = self.driftgraph.axes.plot(subt, smoothy, label='y drift')
-            self.driftgraph.axes.scatter(t, x)
-            self.driftgraph.axes.scatter(t, y)
-            self.driftgraph.axes.legend(handles=[line1, line2],loc='upper right')
-            self.driftgraph.fig.canvas.draw()
+        self.xdrift = usx
+        self.ydrift = usy
 
-            self.driftcheckbox.setEnabled(True)
+        subt = [t for t in range(self.imstack.nfiles)]
+        smoothx = usx(subt)
+        smoothy = usy(subt)
 
+        line1, = self.driftgraph.axes.plot(subt, smoothx, label='x drift')
+        line2, = self.driftgraph.axes.plot(subt, smoothy, label='y drift')
+        self.driftgraph.axes.scatter(t, x)
+        self.driftgraph.axes.scatter(t, y)
+        self.driftgraph.axes.legend(handles=[line1, line2],loc='upper right')
+        self.driftgraph.fig.canvas.draw()
+
+        self.driftcheckbox.setEnabled(True)
+
+    @pyqtSlot()
+    @ifnotplothandles
     def pccbuttonfunction(self):
-        if self.plothandle is not None:
-            drifttotal, usx, usy = PCC(self.imstack)
-            self.xdrift = usx
-            self.ydrift = usy
-            subt = [t for t in range(self.imstack.nfiles)]
-            smoothx = usx(subt)
-            smoothy = usy(subt)
-            line1, = self.driftgraph.axes.plot(subt, smoothx, label='x drift')
-            line2, = self.driftgraph.axes.plot(subt, smoothy, label='y drift')
-            self.driftgraph.axes.legend(handles=[line1, line2], loc='upper right')
-            self.driftgraph.fig.canvas.draw()
-            self.driftcheckbox.setEnabled(True)
+        drifttotal, usx, usy = PCC(self.imstack)
+        self.xdrift = usx
+        self.ydrift = usy
+        subt = [t for t in range(self.imstack.nfiles)]
+        smoothx = usx(subt)
+        smoothy = usy(subt)
+        line1, = self.driftgraph.axes.plot(subt, smoothx, label='x drift')
+        line2, = self.driftgraph.axes.plot(subt, smoothy, label='y drift')
+        self.driftgraph.axes.legend(handles=[line1, line2], loc='upper right')
+        self.driftgraph.fig.canvas.draw()
+        self.driftcheckbox.setEnabled(True)
+
+
 
 
 class TableView(QtWidgets.QTableWidget):
@@ -351,6 +371,9 @@ def main():
     main = MainWindow()
     main.show()
     sys.exit(app.exec_())
+
+
+
 
 
 if __name__ == '__main__':

@@ -18,10 +18,8 @@ def ifnotplothandles(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         if args[0].plothandle is not None:
-            print(*args)
             return func(*args, **kwargs)
         else:
-            print(args[0])
             return QtWidgets.QMessageBox.about(args[0], "Error", "There is no dataset loaded in")
     return wrapper
 
@@ -59,6 +57,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.driftcheckbox.setToolTip("If a drift estimation has been made, this toggles the correction to the displayed"
                                       " data")
         self.driftcheckbox.setEnabled(False)
+        self.driftcheckbox.clicked.connect(self.viewdrift)
         self.autocontrast = QtWidgets.QCheckBox("AutoContrast", self)
         self.autocontrast.setToolTip("Toggle autocontrast on/off")
         self.autocontrast.setChecked(True)
@@ -123,6 +122,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.slider.setRange(0, self.imstack.nfiles - 1)
         self.slider.valueChanged.connect(self.move_through_stack)
+        self.currentimage = 0
         sliderholder.addWidget(self.slider)
         self.label = QtWidgets.QLabel('0', self)
         self.label.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
@@ -146,6 +146,9 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.plothandle:
             self.plothandle.set_clim(self.mincontrast, self.maxcontrast)
             self.sc.fig.canvas.draw()
+
+    def viewdrift(self):
+        self.move_through_stack(self.currentimage)
 
     def get_file(self):
         self.sc.axes.cla()
@@ -250,6 +253,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.sc.fig.canvas.draw()
         self.label.setText(str(value))
+        self.currentimage = value
 
     @pyqtSlot()
     @ifnotplothandles

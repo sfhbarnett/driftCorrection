@@ -125,6 +125,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.driftgraph = MplCanvas()
         self.right.addWidget(self.driftgraph)
+        self.line1, = self.driftgraph.axes.plot([], [])
+        self.line2, = self.driftgraph.axes.plot([], [])
 
         self.hbox.addLayout(self.right)
 
@@ -236,7 +238,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def move_through_stack(self, value):
         """ Updates the current image in the viewport"""
         if self.driftcheckbox.isChecked():
-            #If user wishes to view the drift corrected results
+            # If user wishes to view the drift corrected results
             xshift = self.xdrift(value)
             yshift = self.ydrift(value)
             image = self.imstack.getimage(value)
@@ -245,6 +247,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.plothandle.set_data(shifted)
         else:
             self.plothandle.set_data(self.imstack.getimage(value))
+
+        # Update the scatter plot for ROIs
         x = []
         y = []
         for row in range(self.table.rowCount()):
@@ -257,6 +261,8 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.s.remove()
             self.s = self.sc.axes.scatter(x, y, facecolors='none', edgecolors='r')
+
+        # Check contrast
         if not self.autocontrast.isChecked():
             self.plothandle.set_clim([self.mincontrast, self.maxcontrast])
         else:
@@ -270,6 +276,10 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     @ifnotplothandles
     def correctdrift(self):
+
+        self.line1.remove()
+        self.line2.remove()
+
         x = []
         y = []
         t = []
@@ -294,11 +304,11 @@ class MainWindow(QtWidgets.QMainWindow):
         smoothx = usx(subt)
         smoothy = usy(subt)
 
-        line1, = self.driftgraph.axes.plot(subt, smoothx, label='x drift')
-        line2, = self.driftgraph.axes.plot(subt, smoothy, label='y drift')
+        self.line1, = self.driftgraph.axes.plot(subt, smoothx, label='x drift')
+        self.line2, = self.driftgraph.axes.plot(subt, smoothy, label='y drift')
         self.driftgraph.axes.scatter(t, x)
         self.driftgraph.axes.scatter(t, y)
-        self.driftgraph.axes.legend(handles=[line1, line2],loc='upper right')
+        self.driftgraph.axes.legend(handles=[self.line1, self.line2],loc='upper right')
         self.driftgraph.fig.canvas.draw()
 
         self.driftcheckbox.setEnabled(True)
@@ -306,15 +316,18 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     @ifnotplothandles
     def pccbuttonfunction(self):
+        self.line1.remove()
+        self.line2.remove()
+
         drifttotal, usx, usy = PCC(self.imstack)
         self.xdrift = usx
         self.ydrift = usy
         subt = [t for t in range(self.imstack.nfiles)]
         smoothx = usx(subt)
         smoothy = usy(subt)
-        line1, = self.driftgraph.axes.plot(subt, smoothx, label='x drift')
-        line2, = self.driftgraph.axes.plot(subt, smoothy, label='y drift')
-        self.driftgraph.axes.legend(handles=[line1, line2], loc='upper right')
+        self.line1, = self.driftgraph.axes.plot(subt, smoothx, label='x drift')
+        self.line2, = self.driftgraph.axes.plot(subt, smoothy, label='y drift')
+        self.driftgraph.axes.legend(handles=[self.line1, self.line2], loc='upper right')
         self.driftgraph.fig.canvas.draw()
         self.driftcheckbox.setEnabled(True)
 

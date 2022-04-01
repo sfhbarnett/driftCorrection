@@ -168,8 +168,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sc.axes.cla()
         self.filename = None
         self.filename = QtWidgets.QFileDialog.getOpenFileName(self, 'Open File', '')
-        self.filename = self.filename[0]
-        if self.filename is not None:
+        if self.filename[0] != "":
+            self.filename = self.filename[0]
             self.imstack = tiffstack(self.filename)
             self.plothandle = self.sc.axes.imshow(self.imstack.getimage(0))
             self.slider.setRange(0, self.imstack.nfiles - 1)

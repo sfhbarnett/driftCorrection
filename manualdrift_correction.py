@@ -92,6 +92,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.contrastslider = QLabeledRangeSlider(QtCore.Qt.Vertical)
         self.contrastslider.setHandleLabelPosition(QLabeledRangeSlider.LabelPosition.LabelsBelow)
+        self.contrastslider.label_shift_x = 10
         self.contrastslider.setRange(0, 100)
         self.contrastslider.valueChanged.connect(self.update_contrast)
         self.imagecontrols = QtWidgets.QHBoxLayout()

@@ -5,6 +5,17 @@ from skimage.filters import gaussian
 from scipy.interpolate import UnivariateSpline
 
 def PCC(tf, update=10, smoothing=0.9):
+
+    """
+    Phase cross correlation to estimate the drift between images in a stack
+    :param tf: stack of tiff images encapsulated in the tiffstack class
+    :param update: how often the reference frame should be updated
+    :param smoothing: How much smoothing to apply to the fitted spline
+    :return: drift_total - list of x,y shifts for translation based drift
+    uxs - the fitted spline for x
+    usy - the fitted spline for y
+    """
+
     counter = 0
     drift_total = []
     refimage = tf.getimage(0)
@@ -32,6 +43,7 @@ def PCC(tf, update=10, smoothing=0.9):
     x = [x[0] for x in drift_total]
     y = [y[1] for y in drift_total]
     t = [t for t in range(len(x))]
+    #Spline smoothing to reduce in correct drift spikes
     usx = UnivariateSpline(t, x)
     usy = UnivariateSpline(t, y)
     usx.set_smoothing_factor(smoothing)

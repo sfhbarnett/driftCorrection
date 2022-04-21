@@ -2,11 +2,13 @@
 import tifffile
 from PyQt6 import QtCore, QtWidgets
 import sys
+from PyQt6.QtGui import QFont, QFontDatabase
 
 from PyQt6.QtCore import pyqtSlot
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
 from superqt import QLabeledRangeSlider
 from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
 from skimage.transform import AffineTransform, warp
 from scipy.interpolate import UnivariateSpline
 import numpy as np
@@ -35,6 +37,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
+
+
 
         self.xdrift = None #x-drift
         self.ydrift = None #y-drift
@@ -125,6 +129,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.right.addLayout(self.right_buttons)
 
         self.driftgraph = MplCanvas()
+        self.driftgraph.axes.set_title("Drift Estimation")
+        self.driftgraph.axes.set_xlabel("Time (frames)")
+        self.driftgraph.axes.set_ylabel("Drift (pixels)")
         self.right.addWidget(self.driftgraph)
         self.line1, = self.driftgraph.axes.plot([], [])
         self.line2, = self.driftgraph.axes.plot([], [])
@@ -383,31 +390,57 @@ class TableView(QtWidgets.QTableWidget):
 
 class tiffstack():
 
+    """
+    Container class for a stack of tiff images
+    to do: handle both multipage tiffs as well as image sequences
+    """
+
     def __init__(self, pathname=None):
         self.ims = None
         self.nfiles = 0
         self.minimum = 0
         self.maximum = np.inf
+        self.width = 0
+        self.height = 0
+        self.dtype = None
         if pathname is not None:
             self.load_info(pathname)
+        self.transforms = []
 
-    def load_info(self,pathname):
+    def load_info(self, pathname):
         self.ims = tifffile.TiffFile(pathname)
+        self.width = self.ims.pages[0].shape[0]
+        self.height = self.ims.pages[0].shape[1]
+        self.dtype = self.ims.pages[0].dtype
         self.nfiles = len(self.ims.pages)
 
     def getimage(self, index):
+        """
+        Load in the image at index and store the min and max values
+        :param index: which image in series to open
+        :return: numpy array of image
+        """
         image = self.ims.pages[index].asarray()
         self.minimum = image.min()
         self.maximum = image.max()
         return image
 
+    def settransforms(self, xshift, yshift):
+        for i in range(self.nfiles):
+            self.transforms[i] = AffineTransform(translation=[xshift[i], yshift[i]])
+
+
+
 
 def main():
+    #Initialise GUI
     if not QtWidgets.QApplication.instance():
         app = QtWidgets.QApplication(sys.argv)
     else:
         app = QtWidgets.QApplication.instance()
     app.setQuitOnLastWindowClosed(True)
+
+    app.setFont(QFontDatabase.systemFont(QFontDatabase.FixedFont))
     main = MainWindow()
     main.show()
     sys.exit(app.exec_())

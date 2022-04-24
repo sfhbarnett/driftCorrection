@@ -2,7 +2,7 @@
 import tifffile
 from PyQt6 import QtCore, QtWidgets
 import sys
-from PyQt6.QtGui import QFont, QFontDatabase
+from PyQt6.QtGui import QFont, QFontDatabase, QAction
 from PyQt6.QtCore import pyqtSlot
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
 from superqt import QLabeledRangeSlider
@@ -37,9 +37,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
-
-
-
+        self._createMenuBar()
+        self.setWindowTitle("DriftCorrector")
         self.xdrift = None #x-drift
         self.ydrift = None #y-drift
 
@@ -162,6 +161,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(widget)
         self.setGeometry(100, 100, 1200, 900)
 
+    def _createMenuBar(self):
+        exitAction = QAction(' &Exit', self)
+        exitAction.setShortcut('Ctrl+Q')
+        exitAction.setStatusTip('Exit application')
+        exitAction.triggered.connect(self.exit)
+
+        menuBar = self.menuBar()
+        filemenu = QtWidgets.QMenu(" &File", self)
+        menuBar.addMenu(filemenu)
+        filemenu.addAction(exitAction)
+        self.setMenuBar(menuBar)
+
+    def exit(self):
+        self.close()
+
     def update_contrast(self, value):
         self.mincontrast = value[0]
         self.maxcontrast = value[1]
@@ -270,7 +284,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.s.remove()
             self.s = self.sc.axes.scatter(x, y, facecolors='none', edgecolors='r')
 
-        # Check contrast
+        # Check and update contrast
         if not self.autocontrast.isChecked():
             self.plothandle.set_clim([self.mincontrast, self.maxcontrast])
         else:
@@ -284,7 +298,10 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     @ifnotplothandles
     def correctdrift(self):
-
+        """
+        For point-based drift tracking, will smooth the translations with a spline and render drift to the output graph
+        :return: None
+        """
         self.line1.remove()
         self.line2.remove()
 

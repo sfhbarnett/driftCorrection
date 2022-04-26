@@ -2,7 +2,7 @@
 import tifffile
 from PyQt6 import QtCore, QtWidgets
 import sys
-from PyQt6.QtGui import QFont, QFontDatabase, QAction
+from PyQt6.QtGui import QFont, QFontDatabase, QAction, QIcon
 from PyQt6.QtCore import pyqtSlot
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
 from superqt import QLabeledRangeSlider
@@ -90,8 +90,30 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sc.axes.set_aspect('auto')
         self.sc.fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
         self.s = self.sc.axes.scatter([], [], facecolors='none', edgecolors='r')
-        self.toolbar = NavigationToolbar2QT(self.sc.fig.canvas, self)
+        self.mpl_toolbar = NavigationToolbar2QT(self.sc, None)
+
+        zoomact = QAction(QIcon("icons/zoom2.png"), "zoom", self)
+        zoomact.setCheckable(True)
+        zoomact.setShortcut("Ctrl+z")
+        zoomact.triggered.connect(self.mpl_toolbar.zoom)
+
+        panact = QAction(QIcon("icons/pan.png"),"pan",self)
+        panact.setCheckable(True)
+        panact.setShortcut("Ctrl+p")
+        panact.setChecked(False)
+        panact.triggered.connect(self.mpl_toolbar.pan)
+
+        openact = QAction(QIcon("icons/open.png"),"open file",self)
+        openact.setCheckable(True)
+        openact.triggered.connect(self.get_file)
+
+        self.toolbar = self.addToolBar("zoom")
+        self.toolbar.addAction(panact)
+        self.toolbar.addAction(zoomact)
+        self.toolbar.addAction(openact)
+
         self.sc.fig.canvas.mpl_connect('button_press_event', self.onclick)
+
 
         self.contrastslider = QLabeledRangeSlider(QtCore.Qt.Vertical)
         self.contrastslider.setHandleLabelPosition(QLabeledRangeSlider.LabelPosition.LabelsBelow)
@@ -201,6 +223,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.table.clearTable()
             self.contrastslider.setRange(0, self.imstack.maximum * 1.5)
             self.contrastslider.setValue((self.imstack.minimum, self.imstack.maximum))
+
 
     @pyqtSlot()
     @ifnotplothandles

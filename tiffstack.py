@@ -1,6 +1,6 @@
 import tifffile
 import numpy as np
-from skimage.transform import AffineTransform
+from skimage.transform import AffineTransform, warp
 
 class tiffstack():
 
@@ -17,6 +17,7 @@ class tiffstack():
         self.width = 0
         self.height = 0
         self.dtype = None
+        self.pathname = pathname
         if pathname is not None:
             self.load_info(pathname)
         self.transforms = []
@@ -40,5 +41,24 @@ class tiffstack():
         return image
 
     def settransforms(self, xshift, yshift):
-        for i in range(self.nfiles):
-            self.transforms[i] = AffineTransform(translation=[xshift[i], yshift[i]])
+        """
+        Once drift has been estimated, generate an affine transform for each image
+        """
+        self.transforms.append(AffineTransform(translation=[0, 0]))
+        for i in range(self.nfiles-1):
+            self.transforms.append(AffineTransform(translation=[xshift[i], yshift[i]]))
+
+    def printtransforms(self):
+        print(self.nfiles, len(self.transforms))
+        for i in range(len(self.transforms)):
+            print(self.transforms[i])
+
+    def savedriftcorrected(self):
+        outname = self.pathname[:-4] + 'DC.tif'
+        with tifffile.TiffWriter(outname) as tif:
+            for index in range(self.nfiles):
+                image = self.getimage(index)
+                transform = self.transforms[index]
+                shifted = warp(image, transform, preserve_range=True)
+                tif.save(np.int16(shifted))
+        print('saved data')

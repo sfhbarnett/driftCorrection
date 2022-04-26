@@ -2,12 +2,11 @@
 import tifffile
 from PyQt6 import QtCore, QtWidgets
 import sys
-from PyQt6.QtGui import QFont, QFontDatabase, QAction, QIcon
+from PyQt6.QtGui import  QFontDatabase, QAction, QIcon
 from PyQt6.QtCore import pyqtSlot
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
 from superqt import QLabeledRangeSlider
 from matplotlib.figure import Figure
-import matplotlib.pyplot as plt
 from skimage.transform import AffineTransform, warp
 from scipy.interpolate import UnivariateSpline
 import numpy as np
@@ -24,6 +23,7 @@ def ifnotplothandles(func):
         else:
             return QtWidgets.QMessageBox.about(args[0], "Error", "There is no dataset loaded in")
     return wrapper
+
 
 class MplCanvas(FigureCanvasQTAgg):
 
@@ -228,16 +228,17 @@ class MainWindow(QtWidgets.QMainWindow):
     @pyqtSlot()
     @ifnotplothandles
     def savedrift(self):
-        outname = self.filename[:-4] + 'DC.tif'
-        with tifffile.TiffWriter(outname) as tif:
-            for index in range(self.imstack.nfiles):
-                image = self.imstack.getimage(index)
-                xshift = self.xdrift(index)
-                yshift = self.ydrift(index)
-                transform = AffineTransform(translation=[xshift, yshift])
-                shifted = warp(image, transform, preserve_range=True)
-                tif.save(np.int16(shifted))
-        print('saved data')
+        self.imstack.savedriftcorrected()
+        # outname = self.filename[:-4] + 'DC.tif'
+        # with tifffile.TiffWriter(outname) as tif:
+        #     for index in range(self.imstack.nfiles):
+        #         image = self.imstack.getimage(index)
+        #         xshift = self.xdrift(index)
+        #         yshift = self.ydrift(index)
+        #         transform = AffineTransform(translation=[xshift, yshift])
+        #         shifted = warp(image, transform, preserve_range=True)
+        #         tif.save(np.int16(shifted))
+        # print('saved data')
 
     def onclick(self, event):
         if self.roimode == 1:
@@ -360,6 +361,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.driftgraph.fig.canvas.draw()
 
         self.driftcheckbox.setEnabled(True)
+        self.imstack.settransforms(smoothx,smoothy)
 
     @pyqtSlot()
     @ifnotplothandles
@@ -378,6 +380,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.driftgraph.axes.legend(handles=[self.line1, self.line2], loc='upper right')
         self.driftgraph.fig.canvas.draw()
         self.driftcheckbox.setEnabled(True)
+        self.imstack.settransforms(smoothx, smoothy)
 
     def cleartable(self):
         self.table.clearTable()

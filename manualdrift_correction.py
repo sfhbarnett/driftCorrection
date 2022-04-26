@@ -1,5 +1,4 @@
 
-import tifffile
 from PyQt6 import QtCore, QtWidgets
 import sys
 from PyQt6.QtGui import  QFontDatabase, QAction, QIcon
@@ -9,7 +8,6 @@ from superqt import QLabeledRangeSlider
 from matplotlib.figure import Figure
 from skimage.transform import AffineTransform, warp
 from scipy.interpolate import UnivariateSpline
-import numpy as np
 from PhaseCrossCorrelation import PCC
 from functools import wraps
 from tiffstack import tiffstack
@@ -43,9 +41,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ydrift = None #y-drift
 
         # LEFT COLUMN
-        self.loadfilebutton = QtWidgets.QPushButton('Load File')
-        self.loadfilebutton.clicked.connect(self.get_file)
-        self.loadfilebutton.setToolTip('Load a file for processing')
         self.toggleroi = QtWidgets.QPushButton('Roi OFF ')
         self.toggleroi.clicked.connect(self.toggleroimode)
         self.toggleroi.setToolTip('Toggle ROI mode on/off')
@@ -64,19 +59,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.autocontrast = QtWidgets.QCheckBox("AutoContrast", self)
         self.autocontrast.setToolTip("Toggle autocontrast on/off")
         self.autocontrast.setChecked(True)
-        self.savedriftcorrected = QtWidgets.QPushButton("Save DC")
-        self.savedriftcorrected.setToolTip("Save the drift corrected data")
-        self.savedriftcorrected.clicked.connect(self.savedrift)
 
         self.buttonbox = QtWidgets.QVBoxLayout()
         self.buttonbox.addStretch(1)
-        self.buttonbox.addWidget(self.loadfilebutton)
         self.buttonbox.addWidget(self.toggleroi)
         self.buttonbox.addWidget(self.driftcorbutton)
         self.buttonbox.addWidget(self.PCCbutton)
         self.buttonbox.addWidget(self.driftcheckbox)
         self.buttonbox.addWidget(self.autocontrast)
-        self.buttonbox.addWidget(self.savedriftcorrected)
         self.buttonbox.addStretch(1)
 
         # Central Image controls
@@ -107,13 +97,16 @@ class MainWindow(QtWidgets.QMainWindow):
         openact.setCheckable(True)
         openact.triggered.connect(self.get_file)
 
+        saveact = QAction(QIcon("icons/save.png"),"Save drift corrected data",self)
+        saveact.triggered.connect(self.savedrift)
+
         self.toolbar = self.addToolBar("zoom")
         self.toolbar.addAction(panact)
         self.toolbar.addAction(zoomact)
         self.toolbar.addAction(openact)
+        self.toolbar.addAction(saveact)
 
         self.sc.fig.canvas.mpl_connect('button_press_event', self.onclick)
-
 
         self.contrastslider = QLabeledRangeSlider(QtCore.Qt.Vertical)
         self.contrastslider.setHandleLabelPosition(QLabeledRangeSlider.LabelPosition.LabelsBelow)
@@ -224,21 +217,13 @@ class MainWindow(QtWidgets.QMainWindow):
             self.contrastslider.setRange(0, self.imstack.maximum * 1.5)
             self.contrastslider.setValue((self.imstack.minimum, self.imstack.maximum))
 
-
     @pyqtSlot()
     @ifnotplothandles
     def savedrift(self):
-        self.imstack.savedriftcorrected()
-        # outname = self.filename[:-4] + 'DC.tif'
-        # with tifffile.TiffWriter(outname) as tif:
-        #     for index in range(self.imstack.nfiles):
-        #         image = self.imstack.getimage(index)
-        #         xshift = self.xdrift(index)
-        #         yshift = self.ydrift(index)
-        #         transform = AffineTransform(translation=[xshift, yshift])
-        #         shifted = warp(image, transform, preserve_range=True)
-        #         tif.save(np.int16(shifted))
-        # print('saved data')
+        if self.xdrift != None:
+            self.imstack.savedriftcorrected()
+        else:
+            QtWidgets.QMessageBox.about(self,"Error","There is no drift calculated")
 
     def onclick(self, event):
         if self.roimode == 1:
@@ -357,11 +342,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.line2, = self.driftgraph.axes.plot(subt, smoothy, label='y drift')
         self.driftgraph.axes.scatter(t, x)
         self.driftgraph.axes.scatter(t, y)
-        self.driftgraph.axes.legend(handles=[self.line1, self.line2],loc='upper right')
+        self.driftgraph.axes.legend(handles=[self.line1, self.line2], loc='upper right')
         self.driftgraph.fig.canvas.draw()
 
         self.driftcheckbox.setEnabled(True)
-        self.imstack.settransforms(smoothx,smoothy)
+        self.imstack.settransforms(smoothx, smoothy)
 
     @pyqtSlot()
     @ifnotplothandles
